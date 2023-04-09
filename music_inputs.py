@@ -1,11 +1,9 @@
-import os
 from io import BytesIO
 
-import easygui
 import pygame
 from PIL import Image
 from mutagen.id3 import ID3
-from wx.core import wx
+from pygame import mixer
 
 VICENTE_BUTTONS = [2, 3]
 SIMAO_BUTTONS = [9, 10]
@@ -35,37 +33,46 @@ class MusicTriviaGame:
         self.display_string(window=self._players_window, text="Bem-vindo ao jogo musical!", background_color='yellow')
         self.game_loop()
 
-    def game_loop(self):
+    def _game_round(self):
+        file_path = input("Insira a música:")
+        cover_image = self.extract_cover_from_mp3(
+            file_path=file_path)
+        music_data = self.extract_data_from_mp3(file_path=file_path)
+        cover_image.save("tmp.jpg")
+        mixer.init()
+        mixer.music.load(file_path)
+        mixer.music.set_volume(1)
+        mixer.music.play()
         while True:
-            import tkinter as tk
-            from tkinter import filedialog
-
-            root = tk.Tk()
-            root.withdraw()
-
-            file_path = filedialog.askopenfilename()
-            cover_image = self.extract_cover_from_mp3(
-                file_path=file_path)
-            cover_image.save("tmp.jpg")
-            self.set_image('tmp.jpg', self._players_window)
             for event in pygame.event.get():
-                if hasattr(event, "button") and not self.STOP_ROUND:
-                    if event.button in VICENTE_BUTTONS:
+                if hasattr(event, "button"):
+                    if event.button in VICENTE_BUTTONS and not self.STOP_ROUND:
                         self.display_string(window=self._players_window, text="VICENTE", background_color='blue')
                         self.STOP_ROUND = True
-                    elif event.button in SIMAO_BUTTONS:
+                    elif event.button in SIMAO_BUTTONS and not self.STOP_ROUND:
                         self.display_string(window=self._players_window, text="SIMÃO", background_color='blue')
                         self.STOP_ROUND = True
-                    print(event.button)
-                # if event.type == pygame.KEYDOWN:
-                #     self.STOP_ROUND = False
-                #     self.display_string(window=self._players_window, text="MUDANÇA DE RONDA", background_color='red')
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE:
+                        self.display_string(window=self._players_window, text=f"MUDANÇA DE RONDA {str(music_data)}",
+                                            background_color='red')
+                        self.set_image('tmp.jpg', self._players_window)
+                    if event.key == pygame.K_BACKSPACE:
+                        mixer.music.stop()
+                        return
+
+    def game_loop(self):
+        while True:
+            self._game_round()
+            # Display entry page.
+            self.display_string(window=self._players_window, text="Bem-vindo ao jogo musical!",
+                                background_color='yellow')
 
     def set_image(self, image, window):
         # create a surface object, image is drawn on it.
         imp = pygame.image.load(image).convert()
         # Using blit to copy content from one surface to other
-        window.blit(imp, (50, 50))
+        window.blit(imp, (10, 10))
         pygame.display.flip()
 
     def extract_cover_from_mp3(self, file_path):
@@ -76,6 +83,11 @@ class MusicTriviaGame:
         # Generate image from byte data.
         # Pillow image.
         return Image.open(BytesIO(pict))
+
+    def extract_data_from_mp3(self, file_path):
+        # Generate ID3 object
+        tags = ID3(file_path)
+        return {'title': tags.get('title'), 'artist': tags.get('artist')}
 
     def display_string(self, window, text, background_color='red'):
         # Set the title of the window
@@ -102,24 +114,3 @@ class MusicTriviaGame:
 
 
 app = MusicTriviaGame()
-
-# import the threading module
-import threading
-
-
-class PlayersGameThread(threading.Thread):
-    thread_name = 'GAME'
-    thread_id = 1000
-    _app = None
-
-    def run(self):
-        self._app = MusicTriviaGame()
-#
-# class HostApplication:
-#     BASE_DIRECTORY = '/Users/jlpires/Music/Deep House'
-#
-#     def __init__(self):
-#         print(os.listdir(self.BASE_DIRECTORY))
-#
-#
-# HostApplication()
